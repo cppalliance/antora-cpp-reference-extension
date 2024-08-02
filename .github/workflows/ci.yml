@@ -1,0 +1,102 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - develop
+
+concurrency:
+  group: ${{format('{0}:{1}', github.repository, github.ref)}}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Example
+        run: npm run example
+
+  publish-npm:
+    name: Publish NPM package
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Check version tags
+        run: |
+          GITHUB_TAGNAME=${{ github.ref_name }}
+          if [[ ! $GITHUB_TAGNAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Tag name is not valid. It should match the pattern v*.*.*"
+              exit 1
+          fi
+          PACKAGE_JSON_VERSION=$(node -p "require('./package.json').version")
+          if [[ $GITHUB_TAGNAME != "v$PACKAGE_JSON_VERSION" ]]; then
+              echo "Tag name does not match package.json version"
+              exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate README.md
+        run: |
+          sudo apt install -y pandoc asciidoc-base
+          asciidoc -b docbook README.adoc
+          pandoc -f docbook -t markdown README.xml -o README.md
+          rm README.xml
+
+      - name: Publish NPM package
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+  publish-github:
+    name: Publish Github Release
+    needs: [ build, publish-npm ]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Changelog
+        uses: alandefreitas/cpp-actions/create-changelog@v1.8.3
+        with:
+          thank-non-regular: true
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: CHANGELOG.md

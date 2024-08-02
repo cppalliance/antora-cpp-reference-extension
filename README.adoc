@@ -1,3 +1,74 @@
 = Antora C++ Reference Extension
 
+This extension generates reference documentation for C++ symbols in your codebase and creates an Antora module with its pages.
+
+This extension populates the Antora pages with a reference module that contains the reference documentation for the C++ symbols in your codebase.
+
+== Configuration
+
+=== npm
+
+Install this extension
+
+[source,bash]
+----
+npm i -D @alandefreitas/antora-cpp-tagfiles-extension
+----
+
+=== Requirements
+
+Before building the Antora playbook, make sure you have the following installed:
+
+- A C++ compiler (preferably Clang)
+- `7z` (Windows) or `tar` (Linux)
+- `git`
+
+=== Playbook
+
+Append the following in your `playbook.yaml`:
+
+[source,yaml]
+----
+antora:
+  extensions:
+    - require: '@alandefreitas/antora-cpp-reference-extension' # <1>
+      dependencies: # <2>
+        - name: 'boost'
+          repo: 'https://github.com/boostorg/boost.git'
+          tag: 'develop'
+          variable: 'BOOST_SRC_ROOT'
+----
+
+* <1> `npm` package name: `@alandefreitas/antora-cpp-reference-extension` (required)
+* <2> List of dependencies to be downloaded and extracted. The directory where these dependencies are extracted will be available to all components as an environment variable.
+
+=== Components
+
+Components that will include reference documentation should set the path of the MrDocs configuration file. Append following in your `antora.yaml`:
+
+[source,yaml]
+----
+ext:
+  cpp-reference:
+    config: doc/mrdocs.yml # <1>
+----
+
+* <1> The path to the MrDocs configuration file relative to the worktree.
+
+For more information about MrDocs, see https://www.mrdocs.com/docs
+
+=== References in the component
+
+To include links to the reference module, the prefix `xref:reference:` should be used.
+
+You would usually include a link to the main reference page in the component's `nav.adoc`:
+
+[source,asciidoc]
+----
+* xref:reference:index.adoc[Reference]
+----
+
+== Example
+
+The `example` directory contains an example project with a component that uses the extension.
 
