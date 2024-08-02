@@ -12,7 +12,7 @@ Install this extension
 
 [source,bash]
 ----
-npm i -D @alandefreitas/antora-cpp-tagfiles-extension
+npm i -D @alandefreitas/antora-cpp-reference-extension
 ----
 
 === Requirements
