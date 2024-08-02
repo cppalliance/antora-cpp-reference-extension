@@ -34,10 +34,11 @@ antora:
     # Replace with @alandefreitas/antora-cpp-reference-extension in a real project
     - require: '../../lib/extension.js'
       dependencies:
-        - name: 'boost'
-          repo: 'https://github.com/boostorg/boost.git'
-          tag: 'develop'
-          variable: 'BOOST_SRC_ROOT'
+        - name: 'fmt'
+          repo: 'https://github.com/fmtlib/fmt.git'
+          tag: 'v0.11.0'
+          clone-submodules: false
+          variable: 'FMT_SRC_ROOT'
 
 asciidoc:
   attributes:

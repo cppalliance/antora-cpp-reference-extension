@@ -76,6 +76,17 @@ function normalizePlaybook(playbook, playbookDir) {
     // Playbook carries its own directory
     playbook.dir = playbookDir
 
+    // Branches
+    if (!'content' in playbook) {
+        playbook.content = {}
+        if (!'branches' in playbook.content) {
+            playbook.content.branches = [
+                "HEAD",
+                "v{0..9}*"
+            ]
+        }
+    }
+
     // Extensions are objects
     if (!'antora' in playbook) {
         playbook.antora = {}
@@ -89,5 +100,28 @@ function normalizePlaybook(playbook, playbookDir) {
         }
         return extension
     })
+
+
+    // Extra fields
+    playbook.network = {}
+    playbook.runtime = {
+        fetch: true,
+        quiet: false,
+        silent: false,
+        log: {
+            level: "all",
+            levelFormat: "label",
+            failureLevel: "fatal",
+            format: "pretty"
+        }
+    }
+    playbook.urls = {
+        htmlExtensionStyle: "default",
+        redirectFacility: "static"
+    }
+    playbook.output = {
+        clean: false
+    }
+
     return playbook
 }
