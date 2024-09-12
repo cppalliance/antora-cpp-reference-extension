@@ -37,10 +37,12 @@ antora:
           repo: 'https://github.com/boostorg/boost.git'
           tag: 'develop'
           variable: 'BOOST_SRC_ROOT'
+          system-env: 'BOOST_SRC_ROOT' # <3>
 ----
 
 * <1> `npm` package name: `@alandefreitas/antora-cpp-reference-extension` (required)
 * <2> List of dependencies to be downloaded and extracted. The directory where these dependencies are extracted will be available to all components as an environment variable.
+* <3> The name of the environment variable describing where the path can be found. If this path exists and is a valid directory, it will be used as the source root for the dependency, skipping the download and extraction steps. If this is different from `variable`, the extension will set the value of `variable` to the path where the dependency is already located.
 
 === Components
 
