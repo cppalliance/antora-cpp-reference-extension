@@ -1,8 +1,8 @@
-= Antora C++ Reference Extension
+= Antora {cpp} Reference Extension
 
-This extension generates reference documentation for C++ symbols in your codebase and creates an Antora module with its pages.
+This extension generates reference documentation for {cpp} symbols in your codebase and creates an Antora module with its pages.
 
-This extension populates the Antora pages with a reference module that contains the reference documentation for the C++ symbols in your codebase.
+This extension populates the Antora pages with a reference module that contains the reference documentation for the {cpp} symbols in your codebase.
 
 == Configuration
 
@@ -19,7 +19,7 @@ npm i -D @alandefreitas/antora-cpp-reference-extension
 
 Before building the Antora playbook, make sure you have the following installed:
 
-- A C++ compiler (preferably Clang)
+- A {cpp} compiler (preferably Clang)
 - `7z` (Windows) or `tar` (Linux)
 - `git`
 
