@@ -79,6 +79,9 @@ jobs:
           if [ -n "$title" ]; then
               sed -i "1s/^/# $title\n\n/" README.md
           fi
+          # Remove attributes from section names
+          # https://github.com/jgm/pandoc/issues/5965
+          sed -i -E 's/^(#+ .*?) \{#_[^}]+\}$/\1/' README.md
 
       - name: Publish NPM package
         run: npm publish --access public
