@@ -71,8 +71,14 @@ jobs:
         run: |
           sudo apt install -y pandoc asciidoc-base
           asciidoc -b docbook README.adoc
-          pandoc -f docbook -t markdown README.xml -o README.md
+          pandoc -f docbook -t markdown README.xml -o README.md --shift-heading-level-by=1 --standalone
           rm README.xml
+          # Include the title as h1
+          title=$(sed -n 's/^title: \(.*\)/\1/p' README.md)
+          sed -i '/^---/,/^---/d' README.md
+          if [ -n "$title" ]; then
+              sed -i "1s/^/# $title\n\n/" README.md
+          fi
 
       - name: Publish NPM package
         run: npm publish --access public
