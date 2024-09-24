@@ -1,5 +1,5 @@
 {
-  "name": "@alandefreitas/antora-cpp-reference-extension",
+  "name": "@cppalliance/antora-cpp-reference-extension",
   "version": "0.0.3",
   "description": "C++ Reference Extension for Antora",
   "main": "lib/extension.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alandefreitas/antora-cpp-reference-extension.git"
+    "url": "git+https://github.com/cppalliance/antora-cpp-reference-extension.git"
   },
   "keywords": [
     "antora",
@@ -21,9 +21,9 @@
   "author": "Alan de Freitas",
   "license": "BSL-1.0",
   "bugs": {
-    "url": "https://github.com/alandefreitas/antora-cpp-reference-extension/issues"
+    "url": "https://github.com/cppalliance/antora-cpp-reference-extension/issues"
   },
-  "homepage": "https://github.com/alandefreitas/antora-cpp-reference-extension#readme",
+  "homepage": "https://github.com/cppalliance/antora-cpp-reference-extension#readme",
   "dependencies": {
     "@antora/expand-path-helper": "^2.0.0",
     "axios": "^1.7.2",
