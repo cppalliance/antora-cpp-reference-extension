@@ -16,8 +16,15 @@ concurrency:
 
 jobs:
   build:
-    name: Build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest }
+          - { name: Ubuntu, os: ubuntu-latest }
+          - { name: MacOS, os: macos-latest }
+
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
@@ -33,7 +40,13 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Setup Ninja
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
       - name: Example
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run example
 
   publish-npm:
