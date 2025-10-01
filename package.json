@@ -26,11 +26,11 @@
   "homepage": "https://github.com/cppalliance/antora-cpp-reference-extension#readme",
   "dependencies": {
     "@antora/expand-path-helper": "^2.0.0",
-    "axios": "^1.7.2",
+    "axios": "^1.12.2",
     "cache-directory": "^2.0.0",
-    "fast-glob": "^3.3.2",
-    "isomorphic-git": "^1.27.1",
+    "fast-glob": "^3.3.3",
+    "isomorphic-git": "^1.33.2",
     "js-yaml": "^4.1.0",
-    "semver": "^7.6.3"
+    "semver": "^7.7.2"
   }
 }
