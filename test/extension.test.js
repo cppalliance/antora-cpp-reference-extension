@@ -73,6 +73,31 @@ class generatorContext {
     }
 }
 
+async function withPatchedEnv(vars, fn) {
+    const backup = {}
+    const keys = Object.keys(vars)
+    for (const key of keys) {
+        backup[key] = process.env[key]
+        const value = vars[key]
+        if (value === undefined) {
+            delete process.env[key]
+        } else {
+            process.env[key] = value
+        }
+    }
+    try {
+        return await fn()
+    } finally {
+        for (const key of keys) {
+            if (backup[key] === undefined) {
+                delete process.env[key]
+            } else {
+                process.env[key] = backup[key]
+            }
+        }
+    }
+}
+
 describe('C++ Reference Extension', () => {
     const fixturesDir = path.join(__dirname, 'fixtures')
 
@@ -164,6 +189,66 @@ test('recordTagfileMetadata publishes registry entry with defaults', () => {
     strictEqual(entry.docRootUrl, 'xref:reference:')
     strictEqual(entry.mrdocsVersion, 'v1.2.3')
     strictEqual(entry.tagfilePath, '/tmp/reference/reference.tag.xml')
+})
+
+test('resolveAutoBaseUrl prefers verified commit when available', async () => {
+    const context = new generatorContext()
+    const playbook = {runtime: {}}
+    const extension = new CppReference(context, {config: {autoBaseUrl: true}, playbook})
+    extension.readGitOutput = async () => null
+    extension.fetchGitRemoteRefs = async () => ({
+        hashes: new Set(['deadbeefdeadbeefdeadbeefdeadbeefdeadbeef']),
+        refs: new Set(['refs/heads/main'])
+    })
+    await withPatchedEnv({
+        GITHUB_REPOSITORY: 'owner/project',
+        GITHUB_SHA: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+        GITHUB_SERVER_URL: 'https://github.com',
+        GITHUB_EVENT_PATH: undefined
+    }, async () => {
+        const baseUrl = await extension.resolveAutoBaseUrl({
+            origin: {url: 'https://github.com/owner/project.git'},
+            worktreeDir: '/tmp/nowhere'
+        })
+        strictEqual(baseUrl, 'https://github.com/owner/project/blob/deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/')
+    })
+})
+
+test('resolveAutoBaseUrl falls back to verified branch when commit cannot be confirmed', async () => {
+    const context = new generatorContext()
+    const playbook = {runtime: {}}
+    const extension = new CppReference(context, {config: {autoBaseUrl: true}, playbook})
+    extension.readGitOutput = async () => null
+    extension.fetchGitRemoteRefs = async () => ({
+        hashes: new Set(),
+        refs: new Set(['refs/heads/develop'])
+    })
+    await withPatchedEnv({
+        GITHUB_REPOSITORY: 'owner/project',
+        GITHUB_SHA: 'missing',
+        GITHUB_REF_NAME: 'develop',
+        GITHUB_SERVER_URL: 'https://github.com',
+        GITHUB_EVENT_PATH: undefined
+    }, async () => {
+        const baseUrl = await extension.resolveAutoBaseUrl({
+            origin: {url: 'https://github.com/owner/project.git'},
+            worktreeDir: '/tmp/nowhere'
+        })
+        strictEqual(baseUrl, 'https://github.com/owner/project/blob/develop/')
+    })
+})
+
+test('generateMrDocsArgs appends base-url when auto detection succeeds', async () => {
+    const context = new generatorContext()
+    const playbook = {runtime: {}}
+    const extension = new CppReference(context, {config: {}, playbook})
+    extension.resolveAutoBaseUrl = async () => 'https://github.com/owner/project/blob/main/'
+    const args = await extension.generateMrDocsArgs('doc/mrdocs.yml', '/tmp/reference', {
+        autoBaseUrlEnabled: true,
+        origin: {url: 'https://github.com/owner/project.git'},
+        worktreeDir: '/tmp/nowhere'
+    })
+    ok(args.includes('--base-url=https://github.com/owner/project/blob/main/'))
 })
 
 // The integration test emulates an Antora run where the reference extension

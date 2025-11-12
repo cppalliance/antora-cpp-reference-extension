@@ -56,6 +56,7 @@ Besides the `dependencies` configuration, you can also set the following options
 | `allow-master` | If `true`, the extension will allow the use of the `master` branch for MrDocs if `version` is `*`. | `true`
 | `allow-develop` | If `true`, the extension will allow the use of the `develop` branch for MrDocs if `version` is `*`. | `true`
 | `module` | Antora module that will receive the generated pages (`modules/<module>/pages`). | `reference`
+| `autoBaseUrl` | When `true`, the extension tries to override MrDocs' `base-url` with a verified GitHub blob URL (see "Auto base URL detection"). | `false`
 |===
 
 === Components
@@ -101,7 +102,35 @@ antora:
 
 With this configuration, you don't need to copy tagfiles into your repository or commit them to source control to satisfy `cpp:` macros.
 
+=== Auto base URL detection
+
+Set `autoBaseUrl: true` to let the extension compute `--base-url=` dynamically instead of hard-coding it inside each `mrdocs.yml`. The feature is opt-in and only supports `github.com` remotes for now. Enable it globally or per collector:
+
+[source,yaml]
+----
+antora:
+  extensions:
+    - require: '@cppalliance/antora-cpp-reference-extension'
+      autoBaseUrl: true
+----
+
+[source,yaml]
+----
+ext:
+  cpp-reference:
+    config: doc/mrdocs.yml
+    autoBaseUrl: true
+----
+
+When active, the extension gathers hints in priority order:
+
+1. GitHub Actions pull-request metadata (head repository, commit, and branch) via `GITHUB_*` variables and the event payload referenced by `GITHUB_EVENT_PATH`.
+2. Standard GitHub Actions push metadata such as `GITHUB_REPOSITORY`, `GITHUB_SHA`, and `GITHUB_REF_NAME`.
+3. Optional local overrides (`CPPREF_GITHUB_REPOSITORY`, `CPPREF_GITHUB_SHA`, `CPPREF_GITHUB_REF`, `CPPREF_GITHUB_SERVER_URL`) so you can reproduce the CI environment on a workstation.
+4. The local git worktree (current commit/branch plus the `origin` remote URL).
+
+Every candidate is validated with `git ls-remote` before we emit `--base-url=…`. If git or the network is unavailable, or if no verified GitHub reference is found, the extension leaves the original `base-url` untouched. Non-GitHub hosts automatically fall back to the existing behavior.
+
 == Example
 
 The `example` directory contains an example project with a component that uses the extension.
-
