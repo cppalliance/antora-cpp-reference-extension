@@ -1,6 +1,6 @@
 {
   "name": "@cppalliance/antora-cpp-reference-extension",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "description": "C++ Reference Extension for Antora",
   "main": "lib/extension.js",
   "scripts": {
@@ -25,12 +25,12 @@
   },
   "homepage": "https://github.com/cppalliance/antora-cpp-reference-extension#readme",
   "dependencies": {
-    "@antora/expand-path-helper": "^2.0.0",
-    "axios": "^1.12.2",
+    "@antora/expand-path-helper": "^3.0.0",
+    "axios": "^1.13.2",
     "cache-directory": "^2.0.0",
     "fast-glob": "^3.3.3",
-    "isomorphic-git": "^1.33.2",
+    "isomorphic-git": "^1.35.0",
     "js-yaml": "^4.1.0",
-    "semver": "^7.7.2"
+    "semver": "^7.7.3"
   }
 }
