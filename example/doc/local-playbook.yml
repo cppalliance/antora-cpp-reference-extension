@@ -33,6 +33,7 @@ antora:
   extensions:
     # Replace with @alandefreitas/antora-cpp-reference-extension in a real project
     - require: '../../lib/extension.js'
+      breadcrumbs: true
       dependencies:
         - name: 'fmt'
           repo: 'https://github.com/fmtlib/fmt.git'

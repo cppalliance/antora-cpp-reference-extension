@@ -57,6 +57,7 @@ Besides the `dependencies` configuration, you can also set the following options
 | `allow-develop` | If `true`, the extension will allow the use of the `develop` branch for MrDocs if `version` is `*`. | `true`
 | `module` | Antora module that will receive the generated pages (`modules/<module>/pages`). | `reference`
 | `autoBaseUrl` | When `true`, the extension tries to override MrDocs' `base-url` with a verified GitHub blob URL (see "Auto base URL detection"). | `false`
+| `breadcrumbs` | When `true`, the extension synthesizes breadcrumbs for generated reference pages without adding them to the navigation menu. | `false`
 |===
 
 === Components
@@ -73,7 +74,8 @@ ext:
 ----
 
 * <1> The path to the MrDocs configuration file relative to the worktree.
-* <2> (Optional) Override the Antora module used for the generated pages. If omitted the component inherits the module set at the playbook level (or `reference` when neither level specifies a value).
+* <2> (Optional) Override the Antora module used for the generated pages.
+If omitted the component inherits the module set at the playbook level (or `reference` when neither level specifies a value).
 
 For more information about MrDocs, see https://www.mrdocs.com/docs
 
@@ -104,7 +106,9 @@ With this configuration, you don't need to copy tagfiles into your repository or
 
 === Auto base URL detection
 
-Set `autoBaseUrl: true` to let the extension compute `--base-url=` dynamically instead of hard-coding it inside each `mrdocs.yml`. The feature is opt-in and only supports `github.com` remotes for now. Enable it globally or per collector:
+Set `autoBaseUrl: true` to let the extension compute `--base-url=` dynamically instead of hard-coding it inside each `mrdocs.yml`.
+The feature is opt-in and only supports `github.com` remotes for now.
+Enable it globally or per collector:
 
 [source,yaml]
 ----
@@ -129,7 +133,27 @@ When active, the extension gathers hints in priority order:
 3. Optional local overrides (`CPPREF_GITHUB_REPOSITORY`, `CPPREF_GITHUB_SHA`, `CPPREF_GITHUB_REF`, `CPPREF_GITHUB_SERVER_URL`) so you can reproduce the CI environment on a workstation.
 4. The local git worktree (current commit/branch plus the `origin` remote URL).
 
-Every candidate is validated with `git ls-remote` before we emit `--base-url=…`. If git or the network is unavailable, or if no verified GitHub reference is found, the extension leaves the original `base-url` untouched. Non-GitHub hosts automatically fall back to the existing behavior.
+Every candidate is validated with `git ls-remote` before we emit `--base-url=…`.
+If git or the network is unavailable, or if no verified GitHub reference is found, the extension leaves the original `base-url` untouched.
+Non-GitHub hosts automatically fall back to the existing behavior.
+
+=== Synthetic breadcrumbs
+
+Set `breadcrumbs: true` when you want the extension to derive parent/child relationships directly from the generated MrDocs directory layout.
+
+The extension follows a deterministic procedure to build the breadcrumb trail:
+
+1. Immediately after each MrDocs run, every emitted `.adoc` is recorded alongside its component, version, and module.
+Both `foo/index.adoc` and `foo.adoc` variants are tracked so namespace folders and leaf pages are distinguishable.
+2. During Antora's `contentClassified` event we match each virtual page (`page.src.relative`) against the recorded set, gather ancestor directories, and look for their corresponding `index.adoc` (folder entry) or `*.adoc` (leaf entry).
+This produces an ordered list such as `[Reference → math → geometry → bounding_box]`.
+3. Each breadcrumb entry is given the canonical Antora URL (`/component/module/path.html`) and marked as `urlType: internal`, so the default UI renders them as clickable links without any additional wiring.
+
+This approach works without creating a nav file because Antora's UI templates already consult `page.breadcrumbs`.
+By populating that array ourselves—after the content catalog is built but before page composition—we can describe the hierarchy while leaving the sidebar untouched.
+End users still control their nav files for the main documentation tree, and reference-only modules avoid shipping a 10,000-line nav just to obtain breadcrumbs.
+
+Because the algorithm infers relationships from directories, keep the standard MrDocs layout intact (each namespace/class directory should contain an `index.adoc`).
 
 == Example
 

@@ -11,7 +11,7 @@
 
 const test = require("node:test");
 const {describe, it} = test;
-const {ok, strictEqual} = require("node:assert");
+const {ok, strictEqual, deepStrictEqual} = require("node:assert");
 const {createHash} = require('node:crypto')
 
 const fs = require('fs');
@@ -189,6 +189,54 @@ test('recordTagfileMetadata publishes registry entry with defaults', () => {
     strictEqual(entry.docRootUrl, 'xref:reference:')
     strictEqual(entry.mrdocsVersion, 'v1.2.3')
     strictEqual(entry.tagfilePath, '/tmp/reference/reference.tag.xml')
+})
+
+test('resolveReferenceAncestors walks nested index.adoc hierarchy', () => {
+    const recorded = new Set(['index.adoc', 'boost/index.adoc', 'boost/url/index.adoc', 'boost/url/url_view.adoc'])
+    const ancestors = CppReference.resolveReferenceAncestors('boost/url/url_view.adoc', recorded)
+    deepStrictEqual(ancestors, ['index.adoc', 'boost/index.adoc', 'boost/url/index.adoc'])
+})
+
+test('resolveReferenceAncestors includes root index for sibling pages', () => {
+    const recorded = new Set(['index.adoc', 'distance.adoc'])
+    const ancestors = CppReference.resolveReferenceAncestors('distance.adoc', recorded)
+    deepStrictEqual(ancestors, ['index.adoc'])
+})
+
+test('assignSyntheticBreadcrumbs composes component and ancestor trail', () => {
+    const component = {title: 'Reference', url: '/reference/index.html'}
+    const makePage = (relative, title, url) => ({
+        src: {relative, component: 'reference', module: 'reference'},
+        component,
+        title,
+        pub: {url}
+    })
+    const recorded = new Set(['index.adoc', 'boost/index.adoc', 'boost/url/index.adoc', 'boost/url/url_view.adoc'])
+    const pageMap = new Map([
+        ['index.adoc', makePage('index.adoc', 'Reference', '/reference/index.html')],
+        ['boost/index.adoc', makePage('boost/index.adoc', 'boost namespace', '/reference/boost/index.html')],
+        ['boost/url/index.adoc', makePage('boost/url/index.adoc', 'boost::url overview', '/reference/boost/url/index.html')],
+        ['boost/url/url_view.adoc', makePage('boost/url/url_view.adoc', 'url_view', '/reference/boost/url/url_view.html')]
+    ])
+    CppReference.assignSyntheticBreadcrumbs(recorded, pageMap)
+    const target = pageMap.get('boost/url/url_view.adoc')
+    deepStrictEqual(target.breadcrumbs, [
+        {content: 'Reference', url: '/reference/reference/index.html', urlType: 'internal'},
+        {content: 'boost namespace', url: '/reference/reference/boost/index.html', urlType: 'internal'},
+        {content: 'boost::url overview', url: '/reference/reference/boost/url/index.html', urlType: 'internal'},
+        {content: 'url_view', url: '/reference/reference/boost/url/url_view.html', urlType: 'internal'}
+    ])
+})
+
+test('normalizeReferenceRelativePath strips module prefix', () => {
+    strictEqual(
+        CppReference.normalizeReferenceRelativePath('modules/reference/pages/boost/url/index.adoc', 'reference'),
+        'boost/url/index.adoc'
+    )
+    strictEqual(
+        CppReference.normalizeReferenceRelativePath('modules/api-ref/pages/index.adoc', 'api-ref'),
+        'index.adoc'
+    )
 })
 
 test('resolveAutoBaseUrl prefers verified commit when available', async () => {
