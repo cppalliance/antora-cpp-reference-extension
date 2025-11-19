@@ -56,7 +56,7 @@ Besides the `dependencies` configuration, you can also set the following options
 | `allow-master` | If `true`, the extension will allow the use of the `master` branch for MrDocs if `version` is `*`. | `true`
 | `allow-develop` | If `true`, the extension will allow the use of the `develop` branch for MrDocs if `version` is `*`. | `true`
 | `module` | Antora module that will receive the generated pages (`modules/<module>/pages`). | `reference`
-| `autoBaseUrl` | When `true`, the extension tries to override MrDocs' `base-url` with a verified GitHub blob URL (see "Auto base URL detection"). | `false`
+| `auto-base-url` | When `true`, the extension tries to override MrDocs' `base-url` with a verified GitHub blob URL (see "Auto base URL detection"). Antora forwards kebab-case options to the extension as camelCase (`autoBaseUrl`). | `false`
 | `breadcrumbs` | When `true`, the extension synthesizes breadcrumbs for generated reference pages without adding them to the navigation menu. | `false`
 |===
 
@@ -106,7 +106,7 @@ With this configuration, you don't need to copy tagfiles into your repository or
 
 === Auto base URL detection
 
-Set `autoBaseUrl: true` to let the extension compute `--base-url=` dynamically instead of hard-coding it inside each `mrdocs.yml`.
+Set `auto-base-url: true` to let the extension compute `--base-url=` dynamically instead of hard-coding it inside each `mrdocs.yml`.
 The feature is opt-in and only supports `github.com` remotes for now.
 Enable it globally or per collector:
 
@@ -115,7 +115,7 @@ Enable it globally or per collector:
 antora:
   extensions:
     - require: '@cppalliance/antora-cpp-reference-extension'
-      autoBaseUrl: true
+      auto-base-url: true
 ----
 
 [source,yaml]
@@ -123,7 +123,7 @@ antora:
 ext:
   cpp-reference:
     config: doc/mrdocs.yml
-    autoBaseUrl: true
+    auto-base-url: true
 ----
 
 When active, the extension gathers hints in priority order:
