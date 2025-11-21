@@ -191,6 +191,23 @@ test('recordTagfileMetadata publishes registry entry with defaults', () => {
     strictEqual(entry.tagfilePath, '/tmp/reference/reference.tag.xml')
 })
 
+test('parseMrDocsVersionFromOutput handles patched MrDocs version strings', () => {
+    const patched = 'MrDocs version 0.8.0+45571ab5219b.modified'
+    const {raw, tag} = CppReference.parseMrDocsVersionFromOutput(patched)
+    strictEqual(raw, '0.8.0+45571ab5219b.modified')
+    strictEqual(tag, '0.8.0')
+
+    const unmodified = 'MrDocs version 0.9.1'
+    const plain = CppReference.parseMrDocsVersionFromOutput(unmodified)
+    strictEqual(plain.raw, '0.9.1')
+    strictEqual(plain.tag, '0.9.1')
+
+    const colon = 'version: 1.2.3+abc123.dirty'
+    const parsed = CppReference.parseMrDocsVersionFromOutput(colon)
+    strictEqual(parsed.raw, '1.2.3+abc123.dirty')
+    strictEqual(parsed.tag, '1.2.3')
+})
+
 test('resolveReferenceAncestors walks nested index.adoc hierarchy', () => {
     const recorded = new Set(['index.adoc', 'boost/index.adoc', 'boost/url/index.adoc', 'boost/url/url_view.adoc'])
     const ancestors = CppReference.resolveReferenceAncestors('boost/url/url_view.adoc', recorded)
