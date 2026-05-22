@@ -58,6 +58,7 @@ Besides the `dependencies` configuration, you can also set the following options
 | `module` | Antora module that will receive the generated pages (`modules/<module>/pages`). | `reference`
 | `auto-base-url` | When `true`, the extension tries to override MrDocs' `base-url` with a verified GitHub blob URL (see "Auto base URL detection"). Antora forwards kebab-case options to the extension as camelCase (`autoBaseUrl`). | `false`
 | `breadcrumbs` | When `true`, the extension synthesizes breadcrumbs for generated reference pages without adding them to the navigation menu. | `false`
+| `skip` | When `true`, the extension skips MrDocs and writes a placeholder `reference:index.adoc` per component so navigation cross-references still resolve. See "Skipping reference generation" below for the CLI flag and environment variable equivalents. | `false`
 |===
 
 === Components
@@ -154,6 +155,22 @@ By populating that array ourselves—after the content catalog is built but befo
 End users still control their nav files for the main documentation tree, and reference-only modules avoid shipping a 10,000-line nav just to obtain breadcrumbs.
 
 Because the algorithm infers relationships from directories, keep the standard MrDocs layout intact (each namespace/class directory should contain an `index.adoc`).
+
+== Skipping reference generation
+
+Reference generation is a slow step in this extension's build path.
+That cost is wasted when you're iterating on prose pages or previewing a pull request that doesn't touch the public API.
+
+Skip mode short-circuits the extension: MrDocs doesn't run, and a one-line placeholder `reference:index.adoc` is written per component so existing `xref:reference:index.adoc[]` macros (typically from your `nav.adoc`) still resolve.
+Don't enable it in CI or for published deployments; the placeholder is not a substitute for the real reference.
+
+Any one of these three signals turns skip mode on:
+
+* `skip: true` on the extension entry in your playbook -- best for a dedicated preview playbook checked in next to the production one.
+* `--attribute skip-cpp-reference` on the `antora` CLI -- best for one-off invocations; append `=false` to force the flag off.
+* `ANTORA_SKIP_CPP_REFERENCE=1` in the environment -- best for IDE run configurations and `make` targets. Any non-empty value other than `0`, `false`, `no`, or `off` enables.
+
+If more than one signal is set, the placeholder lists every active source and the undo step for each, so you don't disable one and find skip mode still on from another.
 
 == Example
 

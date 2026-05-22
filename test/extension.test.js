@@ -435,3 +435,214 @@ function normalizePlaybook(playbook, playbookDir) {
 
     return playbook
 }
+
+// ============================================================
+// Skip mode
+// ============================================================
+
+// A minimal context the skip-mode code path needs: only the logger
+// matters since the skip branch never registers event handlers (it
+// just sets state on the extension instance) and the
+// onContentAggregated tests below invoke the handler directly.
+class SkipModeContext {
+    on() {}
+    once() {}
+    getLogger() {
+        const noop = () => {}
+        return {trace: noop, debug: noop, info: noop, warn: noop, error: noop}
+    }
+}
+
+function makeSkipExtension({config = {}, playbook = {}} = {}) {
+    return new CppReference(new SkipModeContext(), {config, playbook})
+}
+
+test('skip mode: source=playbook when config.skip is true', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: undefined}, () => {
+        const extension = makeSkipExtension({config: {skip: true}})
+        strictEqual(extension.skipReference, true)
+        strictEqual(extension.skipReferenceSource, 'playbook')
+    })
+})
+
+test('skip mode: source=cli when --attribute skip-cpp-reference is set', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: undefined}, () => {
+        const playbook = {asciidoc: {attributes: {'skip-cpp-reference': ''}}}
+        const extension = makeSkipExtension({playbook})
+        strictEqual(extension.skipReference, true)
+        strictEqual(extension.skipReferenceSource, 'cli')
+    })
+})
+
+test('skip mode: source=cli accepts explicit truthy attribute value', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: undefined}, () => {
+        const playbook = {asciidoc: {attributes: {'skip-cpp-reference': 'true'}}}
+        const extension = makeSkipExtension({playbook})
+        strictEqual(extension.skipReferenceSource, 'cli')
+    })
+})
+
+test('skip mode: CLI attribute=false does not enable skip', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: undefined}, () => {
+        const playbook = {asciidoc: {attributes: {'skip-cpp-reference': 'false'}}}
+        const extension = makeSkipExtension({playbook})
+        strictEqual(extension.skipReference, false)
+        strictEqual(extension.skipReferenceSource, null)
+    })
+})
+
+test('skip mode: source=env when ANTORA_SKIP_CPP_REFERENCE is truthy', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: '1'}, () => {
+        const extension = makeSkipExtension()
+        strictEqual(extension.skipReference, true)
+        strictEqual(extension.skipReferenceSource, 'env')
+    })
+})
+
+test('skip mode: env values "0"/"false"/"" do not enable skip', async () => {
+    for (const value of ['0', 'false', 'no', 'off', '']) {
+        await withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: value}, () => {
+            strictEqual(makeSkipExtension().skipReference, false, `value="${value}" should not enable skip`)
+        })
+    }
+})
+
+test('skip mode: playbook config wins over CLI attribute and env', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: '1'}, () => {
+        const playbook = {asciidoc: {attributes: {'skip-cpp-reference': '1'}}}
+        const extension = makeSkipExtension({config: {skip: true}, playbook})
+        strictEqual(extension.skipReferenceSource, 'playbook')
+    })
+})
+
+test('skip mode: CLI attribute wins over env when config does not request skip', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: '1'}, () => {
+        const playbook = {asciidoc: {attributes: {'skip-cpp-reference': '1'}}}
+        const extension = makeSkipExtension({playbook})
+        strictEqual(extension.skipReferenceSource, 'cli')
+    })
+})
+
+test('skip mode: no signal leaves skipReference false', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: undefined}, () => {
+        const extension = makeSkipExtension()
+        strictEqual(extension.skipReference, false)
+        strictEqual(extension.skipReferenceSource, null)
+    })
+})
+
+test('skip mode: onContentAggregated drops modules/reference files and adds placeholder', async () => {
+    await withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: '1'}, async () => {
+        const extension = makeSkipExtension()
+        const bucket = {
+            name: 'demo',
+            version: '1.0',
+            origins: [{type: 'git', refname: 'main'}],
+            files: [
+                {path: 'modules/ROOT/pages/index.adoc', src: {path: 'modules/ROOT/pages/index.adoc'}},
+                {path: 'modules/reference/pages/foo.adoc', src: {path: 'modules/reference/pages/foo.adoc'}},
+                {path: 'modules/reference/pages/bar.adoc', src: {path: 'modules/reference/pages/bar.adoc'}},
+            ],
+        }
+        await extension.onContentAggregated({playbook: {}, siteAsciiDocConfig: {}, siteCatalog: {}, contentAggregate: [bucket]})
+        strictEqual(bucket.files.length, 2, 'one untouched file plus one placeholder')
+        const untouched = bucket.files.find((f) => f.path === 'modules/ROOT/pages/index.adoc')
+        ok(untouched, 'unrelated module file should survive')
+        const placeholder = bucket.files.find((f) => f.path === 'modules/reference/pages/index.adoc')
+        ok(placeholder, 'placeholder index should be added')
+        ok(Buffer.isBuffer(placeholder.contents), 'placeholder contents should be a Buffer')
+        strictEqual(placeholder.src.scanned, placeholder.path, 'placeholder should populate src.scanned')
+        strictEqual(placeholder.src.realpath, placeholder.path, 'placeholder should populate src.realpath')
+    })
+})
+
+test('skip mode: placeholder body tailors undo instruction to source', () => {
+    const playbookFile = CppReference.buildSkipPlaceholderFile({origins: []}, 'playbook')
+    const cliFile = CppReference.buildSkipPlaceholderFile({origins: []}, 'cli')
+    const envFile = CppReference.buildSkipPlaceholderFile({origins: []}, 'env')
+    ok(playbookFile.contents.toString('utf8').includes('Set `skip: false`'))
+    ok(cliFile.contents.toString('utf8').includes('--attribute skip-cpp-reference'))
+    ok(envFile.contents.toString('utf8').includes('ANTORA_SKIP_CPP_REFERENCE'))
+})
+
+test('skip mode: placeholder body enumerates every active source when multiple fire', () => {
+    const body = CppReference.buildSkipPlaceholderBody(['playbook', 'cli', 'env'])
+    ok(body.includes('Multiple sources'), 'should call out that multiple signals are active')
+    ok(body.includes('Set `skip: false`'), 'should mention the playbook undo step')
+    ok(body.includes('--attribute skip-cpp-reference'), 'should mention the CLI undo step')
+    ok(body.includes('ANTORA_SKIP_CPP_REFERENCE'), 'should mention the env undo step')
+})
+
+test('skip mode: extension exposes all active sources on the instance', () => {
+    return withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: '1'}, () => {
+        const playbook = {asciidoc: {attributes: {'skip-cpp-reference': '1'}}}
+        const extension = makeSkipExtension({config: {skip: true}, playbook})
+        deepStrictEqual(extension.skipReferenceSources, ['playbook', 'cli', 'env'])
+        // Precedence winner kept on the singular field for log compat.
+        strictEqual(extension.skipReferenceSource, 'playbook')
+    })
+})
+
+test('skip mode: honors module override from descriptor and config', async () => {
+    await withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: undefined}, async () => {
+        // descriptor override wins over config.module
+        const extension = makeSkipExtension({config: {skip: true, module: 'cfg-mod'}})
+        const bucket = {
+            name: 'demo',
+            version: '1.0',
+            origins: [{descriptor: {ext: {cppReference: {module: 'api-ref'}}}}],
+            files: [
+                {path: 'modules/api-ref/pages/stale.adoc', src: {path: 'modules/api-ref/pages/stale.adoc'}},
+                {path: 'modules/reference/pages/untouched.adoc', src: {path: 'modules/reference/pages/untouched.adoc'}},
+            ],
+        }
+        await extension.onContentAggregated({playbook: {}, siteAsciiDocConfig: {}, siteCatalog: {}, contentAggregate: [bucket]})
+        const staleGone = bucket.files.every((f) => f.path !== 'modules/api-ref/pages/stale.adoc')
+        ok(staleGone, 'stale page under overridden module should be removed')
+        ok(
+            bucket.files.find((f) => f.path === 'modules/api-ref/pages/index.adoc'),
+            'placeholder should land under the overridden module'
+        )
+        ok(
+            bucket.files.find((f) => f.path === 'modules/reference/pages/untouched.adoc'),
+            'pages in the default reference module should be left alone when override is in effect'
+        )
+    })
+})
+
+test('skip mode: falls back to config.module when descriptor has no override', async () => {
+    await withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: undefined}, async () => {
+        const extension = makeSkipExtension({config: {skip: true, module: 'cfg-mod'}})
+        const bucket = {
+            name: 'demo',
+            version: '1.0',
+            origins: [{descriptor: {ext: {}}}],
+            files: [],
+        }
+        await extension.onContentAggregated({playbook: {}, siteAsciiDocConfig: {}, siteCatalog: {}, contentAggregate: [bucket]})
+        ok(
+            bucket.files.find((f) => f.path === 'modules/cfg-mod/pages/index.adoc'),
+            'placeholder should fall back to config.module when descriptor is silent'
+        )
+    })
+})
+
+test('skip mode: finalizes tagfile registry so waitFor resolves', async () => {
+    await withPatchedEnv({ANTORA_SKIP_CPP_REFERENCE: '1'}, async () => {
+        const extension = makeSkipExtension()
+        const playbook = {runtime: {}}
+        // A consumer that subscribes BEFORE onContentAggregated runs is
+        // the realistic worst case. The registry's waitFor only resolves
+        // when finalize is called.
+        const registry = CppReference.ensureTagfileRegistry(playbook, extension.logger)
+        const pending = registry.waitFor('reference')
+        await extension.onContentAggregated({
+            playbook,
+            siteAsciiDocConfig: {},
+            siteCatalog: {},
+            contentAggregate: [],
+        })
+        await pending
+        strictEqual(registry.entries.length, 0, 'no entries should be published in skip mode')
+    })
+})
