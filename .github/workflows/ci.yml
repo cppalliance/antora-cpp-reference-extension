@@ -105,14 +105,14 @@ jobs:
           sed -i -E 's/^(#+ .*?) \{#_[^}]+\}$/\1/' README.md
 
       - name: Publish NPM package
+        id: npm-publish
         if: env.IS_SEMVER_TAG == 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-        continue-on-error: true
 
       - name: Print npm error log
-        if: env.IS_SEMVER_TAG == 'true' && failure()
+        if: env.IS_SEMVER_TAG == 'true' && failure() && steps.npm-publish.conclusion == 'failure'
         run: |
           LOG_FILE=$(ls -t /home/runner/.npm/_logs/*.log | head -n 1 || true)
           echo "Latest npm debug log file: $LOG_FILE"
