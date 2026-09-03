@@ -245,6 +245,30 @@ test('assignSyntheticBreadcrumbs composes component and ancestor trail', () => {
     ])
 })
 
+test('removeSymlinks drops every symlink outside .git and keeps files', async () => {
+    const os = require('node:os')
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'cppref-symlinks-'))
+    try {
+        await fsp.mkdir(path.join(dir, 'docs', 'partials'), {recursive: true})
+        await fsp.mkdir(path.join(dir, '.git'), {recursive: true})
+        await fsp.writeFile(path.join(dir, 'docs', 'file.txt'), 'kept')
+        await fsp.symlink('../file.txt', path.join(dir, 'docs', 'partials', 'link.json'))
+        await fsp.symlink('docs', path.join(dir, 'top-link'))
+        await fsp.symlink('nowhere', path.join(dir, '.git', 'keep-link'))
+
+        await CppReference.removeSymlinks(dir)
+
+        const lstatOrNull = (p) => fsp.lstat(p).catch(() => null)
+        strictEqual(await lstatOrNull(path.join(dir, 'docs', 'partials', 'link.json')), null)
+        strictEqual(await lstatOrNull(path.join(dir, 'top-link')), null)
+        ok((await fsp.lstat(path.join(dir, 'docs', 'file.txt'))).isFile())
+        ok((await fsp.lstat(path.join(dir, '.git', 'keep-link'))).isSymbolicLink())
+        ok((await fsp.lstat(path.join(dir, 'docs'))).isDirectory())
+    } finally {
+        await fsp.rm(dir, {recursive: true, force: true})
+    }
+})
+
 test('normalizeReferenceRelativePath strips module prefix', () => {
     strictEqual(
         CppReference.normalizeReferenceRelativePath('modules/reference/pages/boost/url/index.adoc', 'reference'),
